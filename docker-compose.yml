@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: hangan-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: hangan_user
+      POSTGRES_PASSWORD: hangan_secure_password
+      POSTGRES_DB: hangan_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hangan_user -d hangan_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Go Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hangan-backend
+    restart: always
+    environment:
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: hangan_user
+      DB_PASSWORD: hangan_secure_password
+      DB_NAME: hangan_db
+      DB_SSLMODE: disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Next.js Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hangan-frontend
+    restart: always
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+    driver: local
